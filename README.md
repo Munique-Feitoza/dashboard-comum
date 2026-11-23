@@ -18,3 +18,7 @@ Abra [http://localhost:3000](http://localhost:3000).
 - Sem autenticação, backend ou conexão real com as contas Google.
 
 Para disponibilizar dados reais será necessário implementar autenticação e integração com as APIs do Google.
+
+## Publicação
+
+O GitHub Actions gera a exportação estática e publica o site no GitHub Pages a cada push na branch `main`.
