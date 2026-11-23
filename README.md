@@ -42,3 +42,22 @@ As rotas de autenticação estão preparadas em `/login` e `/auth/callback`. A d
 ## Publicação
 
 O GitHub Actions gera a exportação estática e publica o site no GitHub Pages a cada push na branch `main`.
+
+Para hospedar o frontend em outro servidor Node:
+
+```bash
+npm ci
+npm run build:pages
+npm start
+```
+
+`npm start` serve os arquivos estáticos gerados em `out/` na porta 3000. Configure as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` antes do build. O frontend estático não executa rotas de API do Next; autenticação, banco e funções Google rodam no Supabase configurado separadamente.
+
+## O que falta para produção
+
+- Escolher e configurar o projeto Supabase do produto; aplicar e validar a migration nesse banco.
+- Definir domínio final, URLs de retorno do Supabase Auth/OAuth e origens permitidas.
+- Ligar as telas de sites, membros, custos e configurações às funções de dados Supabase; hoje essas telas continuam no modo demo/local.
+- Proteger a aplicação com sessão e papel real. A seleção Admin/Gestor na home é demonstrativa e não concede permissões.
+- Implementar e agendar importação de relatórios Google; ainda não existe sincronização periódica, e os gráficos de lucro exibem uma margem fictícia de 42%.
+- Testar convites, RLS e callback OAuth no projeto e domínio finais.

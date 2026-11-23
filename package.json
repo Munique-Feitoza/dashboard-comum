@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
-    "start": "next start --hostname 0.0.0.0",
+    "start": "serve out --single --listen tcp://0.0.0.0:3000",
     "build:pages": "next build"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
+    "serve": "14.2.8",
     "tailwindcss": "^4.1.0"
   },
   "devDependencies": {
