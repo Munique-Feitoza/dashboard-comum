@@ -27,8 +27,6 @@ export default function LoginPage() {
       if (mode === 'login') {
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
-        const { error: inviteError } = await supabase.rpc('accept_workspace_invites');
-        if (inviteError) throw inviteError;
         window.location.assign('/');
         return;
       }

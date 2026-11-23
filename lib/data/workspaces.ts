@@ -6,7 +6,7 @@ export type AdPlatform = 'google_ad_manager' | 'google_adsense';
 export type WorkspaceMembership = {
   workspace_id: string;
   role: WorkspaceRole;
-  status: 'active' | 'invited' | 'suspended';
+  status: 'active' | 'suspended';
   workspace: { id: string; name: string; created_at: string };
 };
 
@@ -94,15 +94,6 @@ export async function addOperatingExpense(input: {
   }).select().single();
   if (error) throw error;
   return data;
-}
-
-export async function inviteWorkspaceMember(input: { workspaceId: string; email: string; role: WorkspaceRole }) {
-  const client = requireClient();
-  const { data, error } = await client.functions.invoke('invite-workspace-member', {
-    body: { workspaceId: input.workspaceId, email: input.email.trim().toLowerCase(), role: input.role },
-  });
-  if (error) throw error;
-  return data as { invitationId: string; email: string; role: WorkspaceRole; status: 'pending' };
 }
 
 export async function startGoogleConnection(workspaceId: string, platform: AdPlatform) {

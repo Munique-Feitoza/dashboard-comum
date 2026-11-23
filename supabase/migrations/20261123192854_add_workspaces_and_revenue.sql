@@ -17,7 +17,7 @@ create table public.workspace_memberships (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('admin', 'manager')),
-  status text not null default 'active' check (status in ('active', 'invited', 'suspended')),
+  status text not null default 'active' check (status in ('active', 'suspended')),
   created_at timestamptz not null default now(),
   primary key (workspace_id, user_id)
 );
@@ -67,18 +67,6 @@ create table public.operating_expenses (
   foreign key (workspace_id, property_id) references public.properties(workspace_id, id) on delete cascade
 );
 
-create table public.workspace_invites (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references public.workspaces(id) on delete cascade,
-  email text not null check (email = lower(trim(email))),
-  role text not null check (role in ('admin', 'manager')),
-  invited_by uuid not null references auth.users(id) on delete restrict,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked', 'expired')),
-  expires_at timestamptz not null default (now() + interval '7 days'),
-  created_at timestamptz not null default now(),
-  unique (workspace_id, email)
-);
-
 create table public.ad_platform_connections (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -116,7 +104,6 @@ create index revenue_daily_workspace_date_idx on public.revenue_daily (workspace
 create index revenue_daily_property_date_idx on public.revenue_daily (property_id, report_date desc);
 create index operating_expenses_workspace_date_idx on public.operating_expenses (workspace_id, expense_date desc);
 create index operating_expenses_property_date_idx on public.operating_expenses (property_id, expense_date desc) where property_id is not null;
-create index workspace_invites_pending_idx on public.workspace_invites (workspace_id, expires_at) where status = 'pending';
 
 -- SECURITY DEFINER prevents recursive membership RLS. Keep this helper in a non-exposed schema,
 -- pin search_path, and only answer membership/role questions for the current auth.uid().
@@ -159,49 +146,17 @@ $$;
 revoke all on function public.create_workspace(text) from public, anon;
 grant execute on function public.create_workspace(text) to authenticated;
 
-create or replace function public.accept_workspace_invites()
-returns integer
-language plpgsql security definer set search_path = ''
-as $$
-declare
-  current_user_id uuid := (select auth.uid());
-  current_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
-  accepted_count integer := 0;
-  pending_invite record;
-begin
-  if current_user_id is null or current_email = '' then
-    raise exception 'Authentication required' using errcode = '28000';
-  end if;
-  for pending_invite in
-    select id, workspace_id, role
-    from public.workspace_invites
-    where email = current_email and status = 'pending' and expires_at > now()
-  loop
-    insert into public.workspace_memberships (workspace_id, user_id, role, status)
-    values (pending_invite.workspace_id, current_user_id, pending_invite.role, 'active')
-    on conflict (workspace_id, user_id) do update
-      set role = excluded.role, status = 'active';
-    update public.workspace_invites set status = 'accepted' where id = pending_invite.id;
-    accepted_count := accepted_count + 1;
-  end loop;
-  return accepted_count;
-end;
-$$;
-revoke all on function public.accept_workspace_invites() from public, anon;
-grant execute on function public.accept_workspace_invites() to authenticated;
-
 alter table public.workspaces enable row level security;
 alter table public.workspace_memberships enable row level security;
 alter table public.properties enable row level security;
 alter table public.revenue_daily enable row level security;
 alter table public.operating_expenses enable row level security;
-alter table public.workspace_invites enable row level security;
 alter table public.ad_platform_connections enable row level security;
 alter table public.google_oauth_credentials enable row level security;
 alter table public.google_oauth_states enable row level security;
 
 revoke all on public.workspaces, public.workspace_memberships, public.properties,
-  public.revenue_daily, public.operating_expenses, public.workspace_invites,
+  public.revenue_daily, public.operating_expenses,
   public.ad_platform_connections from public, anon;
 grant select on public.workspaces to authenticated;
 grant update (name, updated_at) on public.workspaces to authenticated;
@@ -209,10 +164,9 @@ grant select on public.workspace_memberships to authenticated;
 grant select, insert, update, delete on public.properties to authenticated;
 grant select on public.revenue_daily to authenticated;
 grant select, insert, update, delete on public.operating_expenses to authenticated;
-grant select, insert, update, delete on public.workspace_invites to authenticated;
 grant select, insert, update, delete on public.ad_platform_connections to authenticated;
 grant all on public.workspaces, public.workspace_memberships, public.properties,
-  public.revenue_daily, public.operating_expenses, public.workspace_invites, public.ad_platform_connections,
+  public.revenue_daily, public.operating_expenses, public.ad_platform_connections,
   public.google_oauth_credentials, public.google_oauth_states to service_role;
 revoke all on public.google_oauth_credentials, public.google_oauth_states from public, anon, authenticated;
 grant all on public.google_oauth_credentials, public.google_oauth_states to service_role;
@@ -249,17 +203,6 @@ create policy "Admins can update operating expenses" on public.operating_expense
   for update to authenticated using (private.has_workspace_role(workspace_id, array['admin']))
   with check (private.has_workspace_role(workspace_id, array['admin']));
 create policy "Admins can delete operating expenses" on public.operating_expenses
-  for delete to authenticated using (private.has_workspace_role(workspace_id, array['admin']));
-
-create policy "Admins can view workspace invites" on public.workspace_invites
-  for select to authenticated using (private.has_workspace_role(workspace_id, array['admin']));
-create policy "Admins can create workspace invites" on public.workspace_invites
-  for insert to authenticated
-  with check (private.has_workspace_role(workspace_id, array['admin']) and invited_by = (select auth.uid()));
-create policy "Admins can update workspace invites" on public.workspace_invites
-  for update to authenticated using (private.has_workspace_role(workspace_id, array['admin']))
-  with check (private.has_workspace_role(workspace_id, array['admin']));
-create policy "Admins can delete workspace invites" on public.workspace_invites
   for delete to authenticated using (private.has_workspace_role(workspace_id, array['admin']));
 
 create policy "Members can view platform connection status" on public.ad_platform_connections

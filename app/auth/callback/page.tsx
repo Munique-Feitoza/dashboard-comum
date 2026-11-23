@@ -13,8 +13,6 @@ export default function AuthCallbackPage() {
       if (!supabase) { setError('Autenticação ainda não configurada.'); return; }
       const { error: sessionError } = await supabase.auth.exchangeCodeForSession(window.location.href);
       if (sessionError) { setError(sessionError.message); return; }
-      const { error: inviteError } = await supabase.rpc('accept_workspace_invites');
-      if (inviteError) { setError(inviteError.message); return; }
       const workspaceName = localStorage.getItem('monetize-new-workspace');
       if (workspaceName) {
         const { error: workspaceError } = await supabase.rpc('create_workspace', { workspace_name: workspaceName });
